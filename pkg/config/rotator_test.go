@@ -2,7 +2,10 @@ package config_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -98,4 +101,39 @@ func TestConfigRotatorConcurrentlyTest(t *testing.T) {
 		})
 	}
 	wg.Wait()
+}
+
+// TestConfigRotatorDoesNotReapplyUnchangedBootConfig checks that a config which has
+// not changed since the boot fetch is not applied a second time on the first tick.
+func TestConfigRotatorDoesNotReapplyUnchangedBootConfig(t *testing.T) {
+	// given a bootstrap endpoint that always answers with the same dynamic config
+	var fetches atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fetches.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"chain_id":"hoodi","cluster_id":"optimum_test","mesh_degree_min":4,"mesh_degree_max":8}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var updates atomic.Int64
+	baseCfg := &entities.OptimumConfig{ChainID: "hoodi", ClusterID: "optimum_test"}
+
+	// when the rotator has fetched that same config several times
+	config.NewConfigRotator(
+		ctx,
+		logger.NewAppSLogger(logger.Debug),
+		baseCfg,
+		"hoodi",
+		"optimum_test",
+		func(*entities.DynamicConfig) { updates.Add(1) },
+		config.WithBootstrapBaseURL(srv.URL),
+		config.WithRenewInterval(20*time.Millisecond),
+	)
+	require.Eventually(t, func() bool { return fetches.Load() >= 4 }, 5*time.Second, 10*time.Millisecond)
+
+	// then the updater has been called once, for the boot fetch only
+	require.EqualValues(t, 1, updates.Load())
 }
