@@ -82,9 +82,8 @@ func (r *Rotator) bgFetchConfig(ctx context.Context, chainID, clusterID string) 
 	configURL := endpoints.BootstrapConfigURL(r.bootstrapBaseURL, chainID, clusterID, r.serviceVersion)
 	config, err := fetchRemoteConfig(ctx, configURL)
 	if err == nil { // if init failed, we not panic, use default one, just try later fetch it again
-		// Record the hash of the config applied at boot, otherwise the first tick
-		// compares an unchanged config against an empty lastHash, re-applies it and
-		// calls the updater a second time.
+		// Remember the boot hash, otherwise the first tick sees an empty lastHash
+		// and re-applies this same config.
 		r.lastHash = entities.HashRemoteConfig(config)
 		r.RenewConfig(config)
 		if r.updater != nil {
