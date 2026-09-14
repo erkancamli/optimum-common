@@ -71,13 +71,24 @@ func InitLogger(writers []io.Writer, mode LogMode, fields ...Field) AppLogger {
 	for i, w := range writers {
 		handlers[i] = newDedupHandler(slog.NewJSONHandler(w, &slog.HandlerOptions{
 			Level: logLevelFromMode(mode),
-			ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+			// ReplaceAttr runs for every attribute, including the ones callers pass, so each
+			// branch checks the value kind: a user field named "time" carries a string, not a
+			// time, and reading it as one panics inside the handler.
+			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+				if len(groups) > 0 {
+					return a
+				}
+
 				switch a.Key {
 				case "time":
-					return slog.Int64("timestamp", a.Value.Time().Unix())
+					if a.Value.Kind() == slog.KindTime {
+						return slog.Int64("timestamp", a.Value.Time().Unix())
+					}
 
 				case "gray_log_level":
-					return slog.Int64("level", a.Value.Int64())
+					if a.Value.Kind() == slog.KindInt64 {
+						return slog.Int64("level", a.Value.Int64())
+					}
 				}
 
 				return a
