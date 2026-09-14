@@ -282,24 +282,25 @@ func concurrentlyLogIt(appLog logger.AppLogger) {
 // TestInitLogger_UserFieldsUnderReservedKeys checks that a user field whose key collides with
 // one of the keys ReplaceAttr rewrites is emitted instead of crashing the caller.
 func TestInitLogger_UserFieldsUnderReservedKeys(t *testing.T) {
-	table := map[string]logger.Field{
-		"string under the time key":           logger.WithString("time", "noon"),
-		"string under the gray_log_level key": logger.WithString("gray_log_level", "warning"),
+	table := map[string]struct {
+		key   string
+		value string
+	}{
+		"string under the time key":           {key: "time", value: "noon"},
+		"string under the gray_log_level key": {key: "gray_log_level", value: "warning"},
 	}
 
-	for name, field := range table {
+	for name, tc := range table {
 		t.Run(name, func(t *testing.T) {
-			// given a JSON logger writing to a buffer
 			var buf bytes.Buffer
 			l := logger.InitLogger([]io.Writer{&buf}, logger.Info)
 
-			// when a record carries that field
-			require.NotPanics(t, func() { l.Info("hello", field) })
+			require.NotPanics(t, func() { l.Info("hello", logger.WithString(tc.key, tc.value)) })
 
-			// then the record is still emitted with the built-in timestamp
 			records := parseJSONLines(t, &buf)
 			require.Len(t, records, 1)
 			require.NotZero(t, getNumber(records[0], "timestamp"))
+			require.Equal(t, tc.value, records[0][tc.key])
 		})
 	}
 }

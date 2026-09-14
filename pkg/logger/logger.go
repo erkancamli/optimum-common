@@ -71,9 +71,8 @@ func InitLogger(writers []io.Writer, mode LogMode, fields ...Field) AppLogger {
 	for i, w := range writers {
 		handlers[i] = newDedupHandler(slog.NewJSONHandler(w, &slog.HandlerOptions{
 			Level: logLevelFromMode(mode),
-			// ReplaceAttr runs for every attribute, including the ones callers pass, so each
-			// branch checks the value kind: a user field named "time" carries a string, not a
-			// time, and reading it as one panics inside the handler.
+			// User attributes can reuse reserved keys.
+			// Check Kind before calling typed slog.Value accessors.
 			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 				if len(groups) > 0 {
 					return a
