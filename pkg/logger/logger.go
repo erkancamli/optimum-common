@@ -73,11 +73,7 @@ func InitLogger(writers []io.Writer, mode LogMode, fields ...Field) AppLogger {
 			Level: logLevelFromMode(mode),
 			// User attributes can reuse reserved keys.
 			// Check Kind before calling typed slog.Value accessors.
-			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-				if len(groups) > 0 {
-					return a
-				}
-
+			ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 				switch a.Key {
 				case "time":
 					if a.Value.Kind() == slog.KindTime {
