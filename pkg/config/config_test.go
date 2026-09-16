@@ -174,10 +174,6 @@ func TestInvalidTypeConversion(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid syntax")
 }
 
-// A flag whose value does not parse into the target field must fail the load, the
-// same way TestInvalidTypeConversion covers the environment variable path. Before
-// this was checked, the flag pass discarded the error and left the previous value
-// in place, so a typo in a flag looked like it had been accepted.
 func TestInvalidFlagConversion(t *testing.T) {
 	type flagConfig struct {
 		Port int `flag:"port"`
@@ -195,9 +191,7 @@ func TestInvalidFlagConversion(t *testing.T) {
 	require.Zero(t, cfg.Port)
 }
 
-// Visit walks flags in lexical order, so when more than one flag fails to parse the
-// error names the first of them. Without the early return inside the closure the last
-// failure would win instead, and which flag gets blamed would depend on walk order.
+// Visit walks in lexical order, so the first failing flag is the one reported.
 func TestInvalidFlagConversionReportsFirstFailure(t *testing.T) {
 	type flagConfig struct {
 		Alpha int `flag:"alpha"`
