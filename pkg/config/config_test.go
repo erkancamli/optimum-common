@@ -174,6 +174,48 @@ func TestInvalidTypeConversion(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid syntax")
 }
 
+// A flag whose value does not parse into the target field must fail the load, the
+// same way TestInvalidTypeConversion covers the environment variable path. Before
+// this was checked, the flag pass discarded the error and left the previous value
+// in place, so a typo in a flag looked like it had been accepted.
+func TestInvalidFlagConversion(t *testing.T) {
+	type flagConfig struct {
+		Port int `flag:"port"`
+	}
+
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	fs.String("port", "", "port")
+	require.NoError(t, fs.Parse([]string{"-port", "notanumber"}))
+
+	cfg := flagConfig{}
+	err := config.Load(&cfg, config.WithFlagSet(fs))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "port")
+	require.Contains(t, err.Error(), "invalid syntax")
+	require.Zero(t, cfg.Port)
+}
+
+// Visit walks flags in lexical order, so when more than one flag fails to parse the
+// error names the first of them. Without the early return inside the closure the last
+// failure would win instead, and which flag gets blamed would depend on walk order.
+func TestInvalidFlagConversionReportsFirstFailure(t *testing.T) {
+	type flagConfig struct {
+		Alpha int `flag:"alpha"`
+		Omega int `flag:"omega"`
+	}
+
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	fs.String("alpha", "", "alpha")
+	fs.String("omega", "", "omega")
+	require.NoError(t, fs.Parse([]string{"-alpha", "bad-alpha", "-omega", "bad-omega"}))
+
+	cfg := flagConfig{}
+	err := config.Load(&cfg, config.WithFlagSet(fs))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "alpha")
+	require.NotContains(t, err.Error(), "omega")
+}
+
 func TestUnsupportedType(t *testing.T) {
 	type UnsupportedConfig struct {
 		Data map[string]string `env:"DATA"` // maps not supported
