@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
@@ -303,4 +304,18 @@ func TestInitLogger_UserFieldsUnderReservedKeys(t *testing.T) {
 			require.Equal(t, tc.value, records[0][tc.key])
 		})
 	}
+}
+
+// TestInitLogger_ReservedKeysStillRewritten checks the other direction: an attribute that does
+// carry the expected kind is still rewritten, so the Kind guards did not disable the rewrite.
+func TestInitLogger_ReservedKeysStillRewritten(t *testing.T) {
+	var buf bytes.Buffer
+	l := logger.InitLogger([]io.Writer{&buf}, logger.Info)
+
+	l.Slog().Info("hello", slog.Int64("gray_log_level", 4))
+
+	records := parseJSONLines(t, &buf)
+	require.Len(t, records, 1)
+	require.NotZero(t, getNumber(records[0], "timestamp"))
+	require.NotContains(t, records[0], "gray_log_level")
 }
