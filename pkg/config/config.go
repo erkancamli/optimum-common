@@ -101,10 +101,8 @@ func Load(cfg any, opts ...Option) error {
 	for _, fi := range fields {
 		flagMap[fi.flagName] = fi.value
 	}
-	// flag.FlagSet.Visit takes a func with no error return, so the first failure is
-	// captured and reported after the walk. Without this a flag whose value does not
-	// parse into the target field is silently dropped, while the same value supplied
-	// through a default tag or an environment variable returns an error.
+	// Visit takes a callback with no error return, so the first failure is captured
+	// here and reported after the walk.
 	var flagErr error
 	l.fs.Visit(func(f *flag.Flag) {
 		if flagErr != nil {
