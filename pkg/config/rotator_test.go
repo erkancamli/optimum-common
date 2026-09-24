@@ -115,8 +115,7 @@ func TestConfigRotatorDoesNotReapplyUnchangedBootConfig(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	var updates atomic.Int64
 	baseCfg := &entities.OptimumConfig{ChainID: "hoodi", ClusterID: "optimum_test"}
